@@ -1,0 +1,11 @@
+#domain : [localhost]
+#created : [2012-02-22 03:16:41 UTC]
+[localhost;www.localhost;13]
+	address 127.0.0.1
+	use_node_name true
+[localhost;ns2.localhost;13]
+	address 10.0.0.2
+	use_node_name true
+[localhost;sonic.localhost;17]
+	address 209.54.62.227
+	use_node_name true
