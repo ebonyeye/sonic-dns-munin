@@ -1073,17 +1073,20 @@ sub generate_service_templates {
     
     #use Data::Dumper;
 	 #INFO Dumper $srv->{'fieldinfo'};
-	 my $status = 'normal';
+	 my $status = "normal";
+	 my $priority = 1;
 	 if($srv{'state_warning'}){
-	 	$status = 'warning';
+	 	$status = "warning";
+		$priority = 2;
 	 }
 	 if($srv{'state_critical'}){
-	 	$status = 'critical';
+	 	$status = "ciritical";
+		$priority = 3;
 	 }
 	 use DBI; 
-	 my $query = "UPDATE powerdns.records SET status = \'%s\' WHERE records.id = %d";
+	 my $query = "UPDATE powerdns.records SET status = \'%s\',prio = %d WHERE records.id = %d";
     my $dbh = DBI->connect('DBI:mysql:powerdns', 'powerdns', 'password'); 
-    my $stmt = $dbh->prepare(sprintf($query,$status,$service->{'#%#ParentsNameAsString'}));
+    my $stmt = $dbh->prepare(sprintf($query,$status,$priority,$service->{'#%#ParentsNameAsString'}));
     $stmt->execute();
     $stmt->finish;
 	$dbh->disconnect;
