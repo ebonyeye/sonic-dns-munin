@@ -23,6 +23,11 @@ my $E_CONNECT   = 20;
 
 my $config = Munin::Master::Config->instance()->{config};
 
+use DBI; 
+use Data::Dumper;
+
+use constant PDNS_QUERY_UPDATE_RECORD_STATUS => "UPDATE powerdns.records SET status = \'%s\',prio = %d WHERE records.id = %d";
+
 sub new {
     my ($class, $result_callback, $error_callback) = @_;
 
@@ -79,6 +84,7 @@ sub start_work {
     DEBUG "[DEBUG] Work done";
 
     $self->_free_socket($sock);
+    
 }
 
 
@@ -238,7 +244,11 @@ sub _do_work {
     my ($self, $worker) = @_;
 
     DEBUG "[DEBUG] Starting $worker";
-
+	 #INFO Dumper $worker->{ID};
+	my $worker_id = $worker->{ID};
+	$worker_id =~ /.*;(\d+)$/;
+	my $node_id = $1;
+	
     my $retval = 0;
 
     my $res;
@@ -248,6 +258,19 @@ sub _do_work {
         });
 	if (!defined($res)) {
 	    ERROR "[ERROR] $worker failed to connect to node";
+	 	#update status for powerdns records
+		my $dbh = DBI->connect('DBI:mysql:powerdns', 'powerdns', 'password'); 
+	    INFO "[INFO] DBI Connection estimated.";
+ 		my $status = "ciritical";
+		my $priority = 3;
+		my $query = sprintf(PDNS_QUERY_UPDATE_RECORD_STATUS,$status,$priority,$node_id);
+    	INFO Dumper $query;
+    	my $stmt = $dbh->prepare(sprintf(PDNS_QUERY_UPDATE_RECORD_STATUS,$status,$priority,$node_id));
+    	$stmt->execute();
+    	$stmt->finish;    
+	    $dbh->disconnect;
+		INFO "[INFO] DBI disconnected.";
+	    
 	    $retval = $E_CONNECT;
 	} elsif ($timed_out) {
             ERROR "[ERROR] $worker timed out";

@@ -1094,7 +1094,7 @@ sub generate_service_templates {
 		$priority = 2;
 	 }
 	 if($srv{'state_critical'}){
-	 	$status = "ciritical";
+	 	$status = "critical";
 		$priority = 3;
 	 }
 	 
