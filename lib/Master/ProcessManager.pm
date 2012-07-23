@@ -27,6 +27,7 @@ use DBI;
 use Data::Dumper;
 
 use constant PDNS_QUERY_UPDATE_RECORD_STATUS => "UPDATE powerdns.records SET status = \'%s\',prio = %d WHERE records.id = %d";
+use constant PDNS_QUERY_FETCH_RECORD_STATUS => "SELECT records.status FROM powerdns.records WHERE records.id = %d";
 
 sub new {
     my ($class, $result_callback, $error_callback) = @_;
@@ -244,7 +245,7 @@ sub _do_work {
     my ($self, $worker) = @_;
 
     DEBUG "[DEBUG] Starting $worker";
-	 #INFO Dumper $worker->{ID};
+
 	my $worker_id = $worker->{ID};
 	$worker_id =~ /.*;(\d+)$/;
 	my $node_id = $1;
@@ -252,23 +253,22 @@ sub _do_work {
     my $retval = 0;
 
     my $res;
+	
+	my $dbh = DBI->connect('DBI:mysql:powerdns', 'powerdns', 'password'); 
+    
     eval {
         my $timed_out = !do_with_timeout($self->{worker_timeout}, sub {
-            $res = $worker->do_work();
+            $res = $worker->do_work($dbh);
         });
 	if (!defined($res)) {
 	    ERROR "[ERROR] $worker failed to connect to node";
 	 	#update status for powerdns records
-		my $dbh = DBI->connect('DBI:mysql:powerdns', 'powerdns', 'password'); 
 	    INFO "[INFO] DBI Connection estimated.";
- 		my $status = "critical";
-		my $priority = 3;
-		my $query = sprintf(PDNS_QUERY_UPDATE_RECORD_STATUS,$status,$priority,$node_id);
-    	INFO Dumper $query;
+ 		my $status = "connectionerr";
+		my $priority = 404;
     	my $stmt = $dbh->prepare(sprintf(PDNS_QUERY_UPDATE_RECORD_STATUS,$status,$priority,$node_id));
     	$stmt->execute();
     	$stmt->finish;    
-	    $dbh->disconnect;
 		INFO "[INFO] DBI disconnected.";
 	    
 	    $retval = $E_CONNECT;
@@ -283,6 +283,7 @@ sub _do_work {
         $res = undef;
         $retval = $E_DIED;
     }
+	$dbh->disconnect;
 
     # Stop trying if we already erred.
     return $retval if $retval;

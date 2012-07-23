@@ -18,8 +18,12 @@ use Munin::Master::Node;
 use Munin::Master::Utils;
 use RRDs;
 use Time::HiRes;
+
+use DBI; 
 use Data::Dumper;
 
+use constant PDNS_QUERY_UPDATE_RECORD_STATUS => "UPDATE powerdns.records SET status = \'%s\',prio = %d WHERE records.id = %d";
+use constant PDNS_QUERY_FETCH_RECORD_STATUS => "SELECT records.status FROM powerdns.records WHERE records.id = %d";
 my $config = Munin::Master::Config->instance()->{config};
 
 sub new {
@@ -37,7 +41,7 @@ sub new {
 
 
 sub do_work {
-    my ($self) = @_;
+    my ($self,$dbh) = @_;
 
     my $update_time = Time::HiRes::time;
 
@@ -128,6 +132,22 @@ sub do_work {
 
 		$self->_update_rrd_files(\%service_config, \%service_data);
 
+		
+		my $worker_id = $self->{ID};
+		$worker_id =~ /.*;(\d+)$/;
+		my $node_id = $1;
+		my $pdns_state = 'normal';
+		my $stmt = $dbh->prepare(sprintf(PDNS_QUERY_FETCH_RECORD_STATUS,$node_id));
+		$stmt->execute();
+		my $ary_ref = $stmt->fetchrow_arrayref();
+		$pdns_state = $$ary_ref[0];
+		if ($pdns_state eq "connectionerr"){
+	 		my $status = "unknown";
+			my $priority = 200;
+	    	my $stmt = $dbh->prepare(sprintf(PDNS_QUERY_UPDATE_RECORD_STATUS,$status,$priority,$node_id));
+	    	$stmt->execute();
+	    	$stmt->finish;    
+		}
 	    } # for @plugins
 	}; # eval
 

@@ -75,8 +75,10 @@ use Munin::Master::HTMLOld;
 use Log::Log4perl qw( :easy );
 
 use DBI; 
+use Data::Dumper;
 
 use constant PDNS_QUERY_UPDATE_RECORD_STATUS => "UPDATE powerdns.records SET status = \'%s\',prio = %d WHERE records.id = %d";
+use constant PDNS_QUERY_FETCH_RECORD_STATUS => "SELECT records.status FROM powerdns.records WHERE records.id = %d";
 
 my @times = ("day", "week", "month", "year");
 
@@ -1076,32 +1078,43 @@ sub generate_service_templates {
         }
         push @{$srv{'fieldinfo'}}, \%field_info;
     }
-
-    my $state = munin_service_status($service, $limits, 1);
-
-    if (defined $state) {
-        $srv{'state_warning'}  = 1 if $state eq "warning";
-        $srv{'state_critical'} = 1 if $state eq "critical";
-        $srv{'state_unknown'}  = 1 if $state eq "unknown";
-    }
-    
-    #use Data::Dumper;
-	 #INFO Dumper $srv->{'fieldinfo'};
-	 my $status = "normal";
-	 my $priority = 1;
-	 if($srv{'state_warning'}){
-	 	$status = "warning";
-		$priority = 2;
-	 }
-	 if($srv{'state_critical'}){
-	 	$status = "critical";
-		$priority = 3;
-	 }
-	 
-	 #update status for powerdns records
-    my $stmt = $dbh->prepare(sprintf(PDNS_QUERY_UPDATE_RECORD_STATUS,$status,$priority,$service->{'#%#ParentsNameAsString'}));
+	
+	my $pdns_state = 'normal';
+	my $stmt = $dbh->prepare(sprintf(PDNS_QUERY_FETCH_RECORD_STATUS,$service->{'#%#ParentsNameAsString'}));
     $stmt->execute();
-    $stmt->finish;    
+	my $ary_ref = $stmt->fetchrow_arrayref();
+	$pdns_state = $$ary_ref[0];
+	
+	if ($pdns_state eq "connectionerr"){
+		 #connection state error
+	 }else{
+	    my $state = munin_service_status($service, $limits, 1);
+	
+	    if (defined $state) {
+	        $srv{'state_warning'}  = 1 if $state eq "warning";
+	        $srv{'state_critical'} = 1 if $state eq "critical";
+	        $srv{'state_unknown'}  = 1 if $state eq "unknown";
+	    }
+	
+		 #INFO Dumper $srv->{'fieldinfo'};
+		 my $status = "normal";
+		 my $priority = 1;
+		 if($srv{'state_warning'}){
+		 	$status = "warning";
+			$priority = 2;
+		 }
+		 if($srv{'state_critical'}){
+		 	$status = "critical";
+			$priority = 3;
+		 }
+		 #update status for powerdns records
+	    $stmt = $dbh->prepare(sprintf(PDNS_QUERY_UPDATE_RECORD_STATUS,$status,$priority,$service->{'#%#ParentsNameAsString'}));
+	    $stmt->execute();
+	    $stmt->finish;    
+	 }	
+	
+	
+	
 
     emit_service_template(\%srv, $pathnodes, $peers, $css_name, $root_path, $service);
     emit_performance_template(\%srv, $pathnodes, $peers, $css_name, $root_path, $service);
