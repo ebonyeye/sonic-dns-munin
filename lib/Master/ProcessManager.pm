@@ -261,7 +261,7 @@ sub _do_work {
 	 	#update status for powerdns records
 		my $dbh = DBI->connect('DBI:mysql:powerdns', 'powerdns', 'password'); 
 	    INFO "[INFO] DBI Connection estimated.";
- 		my $status = "ciritical";
+ 		my $status = "critical";
 		my $priority = 3;
 		my $query = sprintf(PDNS_QUERY_UPDATE_RECORD_STATUS,$status,$priority,$node_id);
     	INFO Dumper $query;
